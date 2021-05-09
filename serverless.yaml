@@ -1,0 +1,82 @@
+org: gpalmeri44
+app: merkle-api
+service: serverless-flask
+
+plugins:
+  - serverless-python-requirements
+  - serverless-wsgi
+  - serverless-dynamodb-local
+
+custom:
+  tableName: 'users'
+  wsgi:
+    app: app.app
+    pythonBin: python3
+    packRequirements: false
+  pythonRequirements:
+    dockerizePip: non-linux
+
+provider:
+  name: aws
+  runtime: python3.7
+  stage: dev
+  region: us-east-1
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
+  environment:
+    USERS_TABLE: users
+
+functions:
+  app:
+    # Changed from original documentation - updated handler (prev was depricated)
+    # check handler
+    handler: wsgi_handler.handler
+    events:
+      - http: ANY /
+      - http: ANY {proxy+}
+        cors: true
+  # getUsers:
+  #   handler: app.lambda_handler
+  #   events:
+  #     - http: 'GET /api/admin'
+  #       cors: true
+  # registerUser:
+  #   handler: app.register_user
+  #   events:
+  #     - http: 'POST /api/register'
+  #       cors: true
+
+resources:
+  Resources:
+    UsersDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: country
+            AttributeType: S
+          - AttributeName: created_date
+            AttributeType: N
+        KeySchema:
+          - AttributeName: country
+            KeyType: HASH
+          - AttributeName: created_date
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: users
+
+
+package:
+  exclude:
+    - node_modules/**
+    - venv/**
